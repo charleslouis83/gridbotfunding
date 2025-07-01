@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid & Funding Bot Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-600">Grid & Funding Bot Analyzer</h1>
+            <p class="text-gray-400 mt-2">Your dynamic dashboard for identifying optimal grid and funding strategies.</p>
+        </header>
+
+        <!-- Filters Section -->
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 rounded-lg bg-gray-800 shadow-lg">
+            <div>
+                <label for="exchange-filter" class="text-gray-400 mr-2">Exchange:</label>
+                <select id="exchange-filter" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="all">All Exchanges</option>
+                    <option value="Binance">Binance</option>
+                    <option value="Bybit">Bybit</option>
+                    <option value="Bitget">Bitget</option>
+                </select>
+            </div>
+            <div>
+                <label for="sort-filter" class="text-gray-400 mr-2">Sort By:</label>
+                <select id="sort-filter" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="default">Default</option>
+                    <option value="volatility_desc">Highest Volatility</option>
+                    <option value="funding_desc">Highest Funding Rate</option>
+                    <option value="funding_asc">Lowest Funding Rate</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Analysis Table -->
+        <div class="overflow-x-auto rounded-lg shadow-2xl glassmorphism">
+            <table class="w-full text-sm text-left text-gray-300">
+                <thead class="text-xs text-gray-200 uppercase bg-gray-800/50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Pair</th>
+                        <th scope="col" class="px-6 py-3">Exchange</th>
+                        <th scope="col" class="px-6 py-3">Last Price</th>
+                        <th scope="col" class="px-6 py-3">24h Volatility</th>
+                        <th scope="col" class="px-6 py-3">Funding Rate / 8h</th>
+                        <th scope="col" class="px-6 py-3">Suggested Direction</th>
+                        <th scope="col" class="px-6 py-3 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="analysis-table-body">
+                    <!-- Dynamic rows will be inserted here -->
+                </tbody>
+            </table>
+            <div id="loading-indicator" class="text-center p-8">
+                <p>Loading data...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bot Configuration Modal -->
+    <div id="bot-modal" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex justify-center items-center hidden z-50">
+        <div class="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md p-6 border border-gray-700 transform transition-all duration-300 scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-600">Create Grid Bot</h2>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div>
+                <div class="mb-4">
+                    <p class="text-lg">Pair: <span id="modal-pair" class="font-semibold text-indigo-400"></span></p>
+                    <p class="text-sm">Exchange: <span id="modal-exchange" class="text-gray-400"></span></p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Direction</label>
+                        <input type="text" id="modal-direction" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 mt-1" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Price Range</label>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <input type="number" id="modal-lower-price" placeholder="Lower" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                            <span class="text-gray-400">-</span>
+                            <input type="number" id="modal-upper-price" placeholder="Upper" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2">
+                        </div>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-300">Number of Grids</label>
+                        <input type="number" id="modal-grids" value="50" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 mt-1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Leverage</label>
+                        <input type="range" id="modal-leverage" min="1" max="100" value="5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <div class="text-center mt-1"><span id="leverage-value">5</span>x</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Total Investment (USDT)</label>
+                        <input type="number" placeholder="1000" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 mt-1">
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Launch Bot</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- MOCK DATA ---
+            // In a real application, this data would be fetched from exchange APIs.
+            const mockApiData = [
+                { pair: 'BTC/USDT', exchange: 'Binance', price: 61050.75, volatility: 3.5, fundingRate: 0.01 },
+                { pair: 'ETH/USDT', exchange: 'Binance', price: 2980.50, volatility: 4.2, fundingRate: 0.015 },
+                { pair: 'SUI/USDT', exchange: 'Bybit', price: 0.89, volatility: 8.9, fundingRate: 0.025 },
+                { pair: 'XRP/USDT', exchange: 'Bitget', price: 0.47, volatility: 5.1, fundingRate: -0.012 },
+                { pair: 'SOL/USDT', exchange: 'Binance', price: 135.20, volatility: 7.5, fundingRate: 0.018 },
+                { pair: 'DOGE/USDT', exchange: 'Bybit', price: 0.12, volatility: 9.8, fundingRate: 0.031 },
+                { pair: 'BTC/USDT', exchange: 'Bybit', price: 61045.10, volatility: 3.6, fundingRate: 0.011 },
+                { pair: 'ETH/USDT', exchange: 'Bitget', price: 2979.90, volatility: 4.3, fundingRate: 0.014 },
+                { pair: 'ADA/USDT', exchange: 'Binance', price: 0.38, volatility: 6.2, fundingRate: -0.005 },
+                { pair: 'AVAX/USDT', exchange: 'Bybit', price: 25.50, volatility: 8.1, fundingRate: 0.022 },
+                { pair: 'BTC/USDT', exchange: 'Bitget', price: 61055.00, volatility: 3.4, fundingRate: 0.009 },
+                { pair: 'LINK/USDT', exchange: 'Binance', price: 14.15, volatility: 7.0, fundingRate: 0.017 },
+            ];
+            
+            // --- DOM ELEMENTS ---
+            const tableBody = document.getElementById('analysis-table-body');
+            const exchangeFilter = document.getElementById('exchange-filter');
+            const sortFilter = document.getElementById('sort-filter');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            
+            // Modal elements
+            const modal = document.getElementById('bot-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const leverageSlider = document.getElementById('modal-leverage');
+            const leverageValue = document.getElementById('leverage-value');
+
+
+            // --- FUNCTIONS ---
+
+            // Function to get suggested direction based on funding rate
+            function getSuggestedDirection(fundingRate) {
+                if (fundingRate > 0.015) {
+                    return { text: 'Neutral / Short Bias', class: 'text-green-400' };
+                } else if (fundingRate < -0.01) {
+                    return { text: 'Neutral / Long Bias', class: 'text-red-400' };
+                } else {
+                    return { text: 'Neutral (Volatility)', class: 'text-yellow-400' };
+                }
+            }
+            
+            // Render the table with data
+            function renderTable(data) {
+                tableBody.innerHTML = '';
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-8">No data available for the selected filters.</td></tr>';
+                    return;
+                }
+                
+                data.forEach(item => {
+                    const direction = getSuggestedDirection(item.fundingRate);
+                    const row = `
+                        <tr class="bg-gray-800/30 border-b border-gray-700 hover:bg-gray-700/50 transition-colors duration-200">
+                            <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap text-white">${item.pair}</th>
+                            <td class="px-6 py-4">${item.exchange}</td>
+                            <td class="px-6 py-4">$${item.price.toLocaleString()}</td>
+                            <td class="px-6 py-4">${item.volatility.toFixed(2)}%</td>
+                            <td class="px-6 py-4 font-medium ${item.fundingRate > 0 ? 'text-green-400' : 'text-red-400'}">${(item.fundingRate).toFixed(4)}%</td>
+                            <td class="px-6 py-4 font-semibold ${direction.class}">${direction.text}</td>
+                            <td class="px-6 py-4 text-center">
+                                <button class="create-bot-btn font-medium text-indigo-400 hover:text-indigo-300" 
+                                    data-pair='${item.pair}' 
+                                    data-exchange='${item.exchange}' 
+                                    data-price='${item.price}' 
+                                    data-volatility='${item.volatility}'
+                                    data-direction='${direction.text}'>
+                                    Create Bot
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                });
+                
+                // Add event listeners to the new buttons
+                document.querySelectorAll('.create-bot-btn').forEach(button => {
+                    button.addEventListener('click', openModal);
+                });
+            }
+
+            // Apply filters and sorting
+            function applyFilters() {
+                let filteredData = [...mockApiData];
+
+                // Exchange filter
+                const selectedExchange = exchangeFilter.value;
+                if (selectedExchange !== 'all') {
+                    filteredData = filteredData.filter(item => item.exchange === selectedExchange);
+                }
+
+                // Sorting
+                const sortBy = sortFilter.value;
+                switch (sortBy) {
+                    case 'volatility_desc':
+                        filteredData.sort((a, b) => b.volatility - a.volatility);
+                        break;
+                    case 'funding_desc':
+                        filteredData.sort((a, b) => b.fundingRate - a.fundingRate);
+                        break;
+                    case 'funding_asc':
+                        filteredData.sort((a, b) => a.fundingRate - b.fundingRate);
+                        break;
+                    default:
+                         // Default sort or maintain original
+                        break;
+                }
+
+                renderTable(filteredData);
+            }
+            
+            // --- MODAL LOGIC ---
+            function openModal(event) {
+                const button = event.target;
+                const { pair, exchange, price, volatility, direction } = button.dataset;
+
+                document.getElementById('modal-pair').textContent = pair;
+                document.getElementById('modal-exchange').textContent = exchange;
+                document.getElementById('modal-direction').value = direction;
+                
+                // Suggest price range based on volatility
+                const priceNum = parseFloat(price);
+                const volatilityNum = parseFloat(volatility);
+                const rangePercent = volatilityNum > 5 ? 0.15 : 0.10; // Wider range for more volatile assets
+                
+                document.getElementById('modal-lower-price').value = (priceNum * (1 - rangePercent)).toFixed(2);
+                document.getElementById('modal-upper-price').value = (priceNum * (1 + rangePercent)).toFixed(2);
+                
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.querySelector('div > div').classList.remove('scale-95'), 10);
+            }
+            
+            function closeModal() {
+                modal.querySelector('div > div').classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+
+            // --- EVENT LISTENERS ---
+            exchangeFilter.addEventListener('change', applyFilters);
+            sortFilter.addEventListener('change', applyFilters);
+            closeModalBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) {
+                    closeModal();
+                }
+            });
+            leverageSlider.addEventListener('input', (e) => {
+                leverageValue.textContent = e.target.value;
+            });
+            
+            // --- INITIAL LOAD ---
+            setTimeout(() => {
+                loadingIndicator.style.display = 'none';
+                applyFilters();
+            }, 1000); // Simulate network delay
+        });
+    </script>
+
+</body>
+</html>
